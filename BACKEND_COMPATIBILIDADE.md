@@ -27,12 +27,16 @@
 | Ficha Técnica (`/ficha-tecnica`) | Admin/Gerente | `GET/POST/DELETE /produto-ingrediente`, `GET /produto`, `GET /ingredientes` |
 | Financeiro (`/financeiro`) | Admin/Gerente | `GET /pedido` (faturamento = pedidos `FINALIZADO`) |
 | Usuários (`/usuarios`) | Admin | `GET/POST /usuarios` |
+| Caixa (`/caixa`) | todos (sangria e fechamento: Admin/Gerente) | `GET /caixa/atual`, `POST /caixa/abrir`, `POST /caixa/{id}/movimentacoes`, `POST /caixa/{id}/fechar`, `GET /caixa/movimentacoes` |
+| Histórico de Caixas (`/caixa-historico`) | Admin/Gerente | `GET /caixa` |
+| Relatório de Fechamento (`/caixa-relatorio/:id`) | Admin/Gerente | `GET /caixa/{id}/relatorio-fechamento` |
+| Lançamentos do Caixa (`/gestao-financeira`) | Admin/Gerente | `GET /caixa/movimentacoes`, `GET /caixa/movimentacoes/resumo` |
 
 ## Perfis
 
 O backend tem as roles `ADMIN`, `GERENTE` e `FUNCIONARIO` (o token traz `ROLE_*`). O front usa o de maior privilégio:
-Administrador (tudo), Gerente (tudo menos Usuários) e Funcionário (mesas, pedidos e cozinha).
-O controle por perfil é só no front: a API aceita qualquer usuário autenticado.
+Administrador (tudo), Gerente (tudo menos Usuários) e Funcionário (mesas, pedidos, cozinha e abertura de caixa com suprimento).
+O controle por perfil é só no front, exceto no Caixa: a API de `/caixa` valida o perfil (sangria, fechamento e consultas exigem Administrador ou Gerente; abrir, ver o caixa atual e lançar suprimento valem para qualquer usuário). Nas demais rotas a API aceita qualquer usuário autenticado.
 
 ## Status do pedido
 
@@ -47,8 +51,8 @@ O front usa o enum do backend: `ABERTO` (Aguardando) → `EM_PREPARO` (baixa o e
 
 ## Telas sem API (fora das rotas)
 
-Comandas, clientes, fidelidade, cupons/cashback, fornecedores, pedidos de compra, gestão financeira,
-cardápio digital, grupos de acesso, configurações, confirmar pedido, delivery, caixa e o painel superadmin
+Comandas, clientes, fidelidade, cupons/cashback, fornecedores, pedidos de compra,
+cardápio digital, grupos de acesso, configurações, confirmar pedido, delivery e o painel superadmin
 continuam no projeto, mas não estão no menu nem nas rotas até o backend expor os endpoints.
 
 ## Observação técnica

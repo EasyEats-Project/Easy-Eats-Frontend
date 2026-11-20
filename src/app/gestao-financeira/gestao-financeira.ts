@@ -1,144 +1,123 @@
-import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { CurrencyPipe, DatePipe } from '@angular/common';
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MensagemErroApiUtil } from '../utils/mensagemErroApiUtil';
-import { FiltroPeriodo, PeriodoUtil } from '../utils/periodoUtil';
+import { forkJoin } from 'rxjs';
+import { CarregandoComponent } from '../../components/carregando/carregando';
+import { FiltroPeriodoComponent } from '../../components/filtro-periodo/filtro-periodo';
+import { PaginacaoComponent } from '../../components/paginacao/paginacao';
 import {
-  MovimentacaoFinanceira,
-  MovimentacaoFinanceiraService,
-} from './movimentacao-financeira.service';
+  CaixaService,
+  FiltroLancamentos,
+  MovimentacaoCaixa,
+  Pagina,
+  ResumoLancamentos,
+  TIPO_MOVIMENTACAO_LABEL,
+  TipoMovimentacao,
+  ehSaida,
+} from '../caixa/caixa.service';
+import { MensagemErroApiUtil } from '../utils/mensagemErroApiUtil';
+import { Periodo } from '../utils/periodoUtil';
 
-type FiltroTipo = 'Todos' | 'Entradas' | 'Saidas';
+type FiltroTipo = 'TODOS' | TipoMovimentacao;
 
-// Lançamentos de sangria (retirada do caixa) e do tipo SAIDA contam como
-// saída; qualquer outro tipo (ENTRADA, SUPRIMENTO, ou um tipo customizado
-// criado aqui) conta como entrada.
-const TIPOS_SAIDA = ['SANGRIA', 'SAIDA'];
+const TAMANHO_PAGINA = 20;
 
+/** Lançamentos financeiros vindos do caixa (fundo inicial, suprimentos e sangrias), com filtros. */
 @Component({
   selector: 'app-gestao-financeira',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CurrencyPipe, DatePipe, FormsModule, CarregandoComponent, FiltroPeriodoComponent, PaginacaoComponent],
   templateUrl: './gestao-financeira.html',
   styleUrl: './gestao-financeira.scss',
 })
-export class GestaoFinanceira implements OnInit {
-  private service = inject(MovimentacaoFinanceiraService);
+export class GestaoFinanceira {
+  private caixaService = inject(CaixaService);
 
-  filtroTipo: FiltroTipo = 'Todos';
-  filtroPeriodo: FiltroPeriodo = 'mes';
-  dataInicioCustom = PeriodoUtil.paraIso(new Date());
-  dataFimCustom = PeriodoUtil.paraIso(new Date());
+  readonly tipoLabel = TIPO_MOVIMENTACAO_LABEL;
+  readonly ehSaida = ehSaida;
+  readonly filtrosTipo: { valor: FiltroTipo; label: string }[] = [
+    { valor: 'TODOS', label: 'Todos' },
+    { valor: 'FUNDO_INICIAL', label: TIPO_MOVIMENTACAO_LABEL.FUNDO_INICIAL },
+    { valor: 'SUPRIMENTO', label: TIPO_MOVIMENTACAO_LABEL.SUPRIMENTO },
+    { valor: 'SANGRIA', label: TIPO_MOVIMENTACAO_LABEL.SANGRIA },
+  ];
 
-  carregando = true;
-  erro: string | null = null;
-  salvando = false;
-  lancamentos: MovimentacaoFinanceira[] = [];
+  periodo = signal<Periodo | null>(null);
+  tipo = signal<FiltroTipo>('TODOS');
+  usuario = signal('');
+  caixaId = signal<number | null>(null);
 
-  novoTipo: 'ENTRADA' | 'SAIDA' = 'ENTRADA';
-  novaCategoria = '';
-  novoValor: number | null = null;
-  novaDescricao = '';
+  pagina = signal<Pagina<MovimentacaoCaixa> | null>(null);
+  resumo = signal<ResumoLancamentos | null>(null);
+  carregando = signal(true);
+  erro = signal<string | null>(null);
 
-  ngOnInit() {
+  /** O filtro de período emite o intervalo inicial ao montar, o que dispara a primeira carga. */
+  aplicarPeriodo(periodo: Periodo): void {
+    this.periodo.set(periodo);
     this.carregar();
   }
 
-  ehSaida(lancamento: MovimentacaoFinanceira): boolean {
-    return TIPOS_SAIDA.includes((lancamento.tipo ?? '').toUpperCase());
+  selecionarTipo(tipo: FiltroTipo): void {
+    this.tipo.set(tipo);
+    this.carregar();
   }
 
-  get lancamentosFiltrados(): MovimentacaoFinanceira[] {
-    if (this.filtroTipo === 'Entradas') {
-      return this.lancamentos.filter((l) => !this.ehSaida(l));
+  /** Busca a página 0 e os totais com os filtros atuais. */
+  carregar(): void {
+    const filtro = this.filtroAtual();
+    if (!filtro) {
+      return;
     }
-    if (this.filtroTipo === 'Saidas') {
-      return this.lancamentos.filter((l) => this.ehSaida(l));
-    }
-    return this.lancamentos;
-  }
-
-  get totalGanhos(): number {
-    return this.lancamentos.filter((l) => !this.ehSaida(l)).reduce((soma, l) => soma + l.valor, 0);
-  }
-
-  get totalGastos(): number {
-    return this.lancamentos.filter((l) => this.ehSaida(l)).reduce((soma, l) => soma + l.valor, 0);
-  }
-
-  get saldo(): number {
-    return this.totalGanhos - this.totalGastos;
-  }
-
-  selecionarFiltroTipo(filtro: FiltroTipo) {
-    this.filtroTipo = filtro;
-  }
-
-  selecionarFiltroPeriodo(filtro: FiltroPeriodo) {
-    this.filtroPeriodo = filtro;
-    if (filtro !== 'periodo') {
-      this.carregar();
-    }
-  }
-
-  carregar() {
-    const { inicio, fim } = PeriodoUtil.resolver(this.filtroPeriodo, {
-      inicio: this.dataInicioCustom,
-      fim: this.dataFimCustom,
-    });
-    this.carregando = true;
-    this.erro = null;
-
-    this.service.listarPorPeriodo(inicio, fim).subscribe({
-      next: (lancamentos) => {
-        this.lancamentos = lancamentos;
-        this.carregando = false;
+    this.carregando.set(true);
+    this.erro.set(null);
+    forkJoin({
+      pagina: this.caixaService.listarMovimentacoes(filtro, 0, TAMANHO_PAGINA),
+      resumo: this.caixaService.resumirMovimentacoes(filtro),
+    }).subscribe({
+      next: ({ pagina, resumo }) => {
+        this.pagina.set(pagina);
+        this.resumo.set(resumo);
+        this.carregando.set(false);
       },
-      error: () => {
-        this.erro = 'Não foi possível carregar os lançamentos.';
-        this.carregando = false;
+      error: (erro) => {
+        this.erro.set(MensagemErroApiUtil.extrair(erro, 'Não foi possível carregar os lançamentos.'));
+        this.carregando.set(false);
       },
     });
   }
 
-  registrarLancamento() {
-    if (!this.novaCategoria.trim() || !this.novoValor || this.novoValor <= 0) {
-      this.erro = 'Informe a categoria e um valor maior que zero.';
+  /** Troca de página: os totais não mudam, então só a lista é buscada de novo. */
+  irParaPagina(numeroPagina: number): void {
+    const filtro = this.filtroAtual();
+    if (!filtro) {
       return;
     }
-
-    this.salvando = true;
-    this.erro = null;
-
-    this.service
-      .criar({
-        tipo: this.novoTipo,
-        categoria: this.novaCategoria.trim(),
-        valor: this.novoValor,
-        descricao: this.novaDescricao.trim() || null,
-      })
-      .subscribe({
-        next: () => {
-          this.salvando = false;
-          this.novaCategoria = '';
-          this.novoValor = null;
-          this.novaDescricao = '';
-          this.carregar();
-        },
-        error: (erro) => {
-          this.salvando = false;
-          this.erro = MensagemErroApiUtil.extrair(erro, 'Não foi possível registrar o lançamento.');
-        },
-      });
+    this.carregando.set(true);
+    this.caixaService.listarMovimentacoes(filtro, numeroPagina, TAMANHO_PAGINA).subscribe({
+      next: (pagina) => {
+        this.pagina.set(pagina);
+        this.carregando.set(false);
+      },
+      error: (erro) => {
+        this.erro.set(MensagemErroApiUtil.extrair(erro, 'Não foi possível carregar os lançamentos.'));
+        this.carregando.set(false);
+      },
+    });
   }
 
-  excluir(lancamento: MovimentacaoFinanceira) {
-    if (!confirm(`Excluir o lançamento "${lancamento.categoria}"?`)) {
-      return;
+  private filtroAtual(): FiltroLancamentos | null {
+    const periodo = this.periodo();
+    if (!periodo) {
+      return null;
     }
-    this.service.excluir(lancamento.id).subscribe({
-      next: () => this.carregar(),
-      error: () => (this.erro = 'Não foi possível excluir o lançamento.'),
-    });
+    const tipo = this.tipo();
+    return {
+      inicio: periodo.inicio,
+      fim: periodo.fim,
+      tipo: tipo === 'TODOS' ? null : tipo,
+      usuario: this.usuario(),
+      caixaId: this.caixaId(),
+    };
   }
 }

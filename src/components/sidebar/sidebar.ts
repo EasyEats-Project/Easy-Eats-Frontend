@@ -88,9 +88,14 @@ export class Sidebar {
     {
       label: 'Financeiro',
       icon: 'bi-cash-coin',
-      rota: '/financeiro',
+      rota: null,
       cor: '#db2777',
-      perfis: PERFIS_GESTAO,
+      filhos: [
+        { label: 'Visão Geral', icon: 'bi-graph-up', rota: '/financeiro', cor: '#db2777', perfis: PERFIS_GESTAO },
+        { label: 'Caixa', icon: 'bi-wallet2', rota: '/caixa', cor: '#db2777' },
+        { label: 'Histórico de Caixas', icon: 'bi-clock-history', rota: '/caixa-historico', cor: '#db2777', perfis: PERFIS_GESTAO },
+        { label: 'Lançamentos', icon: 'bi-list-ul', rota: '/gestao-financeira', cor: '#db2777', perfis: PERFIS_GESTAO },
+      ],
     },
     {
       label: 'Usuários',
