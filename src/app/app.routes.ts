@@ -56,6 +56,7 @@ export const routes: Routes = [
         loadComponent: () => import('./perfil-admin/perfilAdmin').then((m) => m.PerfilAdmin),
       },
 
+      { path: 'conta/:id', title: 'Conta', loadComponent: () => import('./conta/conta').then((m) => m.Conta) },
       // Caixa: qualquer perfil abre o caixa e lança suprimento; sangria e fechamento são validados pela API
       { path: 'caixa', title: 'Caixa', loadComponent: () => import('./caixa/caixa').then((m) => m.CaixaComponent) },
       // Administrador e Gerente
