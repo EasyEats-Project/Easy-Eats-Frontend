@@ -65,6 +65,13 @@
           </div>
         </div>
         <div class="stat-card">
+          <div class="stat-icon verde"><i class="bi bi-receipt"></i></div>
+          <div>
+            <div class="stat-valor">{{ r.totalVendas | currency: 'BRL' }}</div>
+            <div class="stat-label">Vendas em dinheiro</div>
+          </div>
+        </div>
+        <div class="stat-card">
           <div class="stat-icon vermelho"><i class="bi bi-box-arrow-up"></i></div>
           <div>
             <div class="stat-valor">{{ r.totalSangrias | currency: 'BRL' }}</div>
@@ -120,7 +127,12 @@
               <tr>
                 <td>{{ m.dataMovimentacao | date: 'dd/MM HH:mm' }}</td>
                 <td>{{ tipoLabel[m.tipo] }}</td>
-                <td>{{ m.descricao || '—' }}</td>
+                <td>
+                  {{ m.descricao || '—' }}
+                  @if (m.vendaId) {
+                    <a class="link-venda" [routerLink]="['/conta', m.vendaId]" title="Ver a conta"><i class="bi bi-box-arrow-up-right"></i></a>
+                  }
+                </td>
                 <td>{{ m.usuario }}</td>
                 <td class="num" [class.valor-saida]="ehSaida(m.tipo)" [class.valor-entrada]="!ehSaida(m.tipo)">
                   {{ ehSaida(m.tipo) ? '−' : '+' }} {{ m.valor | currency: 'BRL' }}

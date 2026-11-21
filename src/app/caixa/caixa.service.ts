@@ -4,17 +4,18 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export type StatusCaixa = 'ABERTO' | 'FECHADO';
-export type TipoMovimentacao = 'FUNDO_INICIAL' | 'SUPRIMENTO' | 'SANGRIA';
+export type TipoMovimentacao = 'FUNDO_INICIAL' | 'SUPRIMENTO' | 'SANGRIA' | 'VENDA';
 /** Tipos que o operador pode lançar durante o turno (o fundo inicial só entra na abertura). */
-export type TipoLancavel = Exclude<TipoMovimentacao, 'FUNDO_INICIAL'>;
+export type TipoLancavel = Extract<TipoMovimentacao, 'SUPRIMENTO' | 'SANGRIA'>;
 
 export const TIPO_MOVIMENTACAO_LABEL: Record<TipoMovimentacao, string> = {
   FUNDO_INICIAL: 'Fundo inicial',
   SUPRIMENTO: 'Suprimento',
   SANGRIA: 'Sangria',
+  VENDA: 'Venda (dinheiro)',
 };
 
-export const TIPOS_MOVIMENTACAO: TipoMovimentacao[] = ['FUNDO_INICIAL', 'SUPRIMENTO', 'SANGRIA'];
+export const TIPOS_MOVIMENTACAO: TipoMovimentacao[] = ['FUNDO_INICIAL', 'SUPRIMENTO', 'SANGRIA', 'VENDA'];
 
 /** Sangria retira dinheiro do caixa; os demais tipos somam. */
 export function ehSaida(tipo: TipoMovimentacao): boolean {
@@ -42,6 +43,8 @@ export interface Caixa {
 export interface MovimentacaoCaixa {
   id: number;
   caixaId: number;
+  /** Venda que originou a entrada (lançamentos do tipo VENDA). */
+  vendaId: number | null;
   tipo: TipoMovimentacao;
   valor: number;
   descricao: string | null;
@@ -67,6 +70,7 @@ export interface RelatorioFechamento {
   caixa: Caixa;
   totalSuprimentos: number;
   totalSangrias: number;
+  totalVendas: number;
   movimentacoes: MovimentacaoCaixa[];
 }
 

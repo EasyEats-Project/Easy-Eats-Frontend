@@ -2,7 +2,7 @@
   <header class="topo">
     <div>
       <h1>Dashboard</h1>
-      <p>Indicadores calculados a partir dos pedidos e do estoque cadastrados</p>
+      <p>Faturamento das vendas finalizadas e indicadores de operação (comandas e estoque)</p>
     </div>
     <div class="topo-acoes">
       <button type="button" class="btn btn-secundario" (click)="carregar()" [disabled]="carregando()">
@@ -28,7 +28,7 @@
         <div class="stat-icon verde"><i class="bi bi-cash-stack"></i></div>
         <div>
           <div class="stat-valor">{{ resumoHoje().totalFaturado | currency: 'BRL' }}</div>
-          <div class="stat-label">Faturamento (finalizados)</div>
+          <div class="stat-label">Faturamento (vendas finalizadas)</div>
         </div>
       </div>
       <div class="stat-card">
@@ -48,7 +48,7 @@
       <div class="stat-card">
         <div class="stat-icon vermelho"><i class="bi bi-x-circle"></i></div>
         <div>
-          <div class="stat-valor">{{ resumoHoje().canceladas }}</div>
+          <div class="stat-valor">{{ resumoHoje().quantidadeCanceladas }}</div>
           <div class="stat-label">Cancelados</div>
         </div>
       </div>

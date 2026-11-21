@@ -7,10 +7,10 @@ import { CarregandoComponent } from '../../components/carregando/carregando';
 import {
   PROXIMO_STATUS,
   STATUS_PEDIDO_LABEL,
-  Venda,
-  VendaService,
+  Comanda,
+  ComandaService,
   identificacaoPedido,
-} from '../novo-pedido/venda.service';
+} from '../comandas/comanda.service';
 import { MensagemErroApiUtil } from '../utils/mensagemErroApiUtil';
 
 const INTERVALO_ATUALIZACAO_MS = 15000;
@@ -25,7 +25,7 @@ const MINUTOS_ATRASO = 20;
   imports: [CurrencyPipe, DatePipe, CarregandoComponent],
 })
 export class ComponentFila implements OnInit {
-  private vendaService = inject(VendaService);
+  private comandaService = inject(ComandaService);
   private destroyRef = inject(DestroyRef);
 
   readonly statusLabel = STATUS_PEDIDO_LABEL;
@@ -36,8 +36,8 @@ export class ComponentFila implements OnInit {
   processandoId = signal<number | null>(null);
   agora = signal(Date.now());
 
-  emAndamento = signal<Venda[]>([]);
-  finalizadosHoje = signal<Venda[]>([]);
+  emAndamento = signal<Comanda[]>([]);
+  finalizadosHoje = signal<Comanda[]>([]);
 
   totalAguardando = computed(() => this.emAndamento().filter((p) => p.status === 'ABERTO').length);
   totalPreparando = computed(() => this.emAndamento().filter((p) => p.status === 'EM_PREPARO').length);
@@ -52,7 +52,7 @@ export class ComponentFila implements OnInit {
   carregar(mostrarCarregando = true): void {
     if (mostrarCarregando) this.carregando.set(true);
 
-    this.vendaService.listar().subscribe({
+    this.comandaService.listar().subscribe({
       next: (pedidos) => {
         const hoje = PeriodoUtil.paraIso(new Date());
         this.emAndamento.set(
@@ -75,27 +75,27 @@ export class ComponentFila implements OnInit {
     });
   }
 
-  minutosEspera(pedido: Venda): number {
+  minutosEspera(pedido: Comanda): number {
     if (!pedido.dataCriacao) return 0;
     return Math.max(0, Math.floor((this.agora() - new Date(pedido.dataCriacao).getTime()) / 60000));
   }
 
-  atrasado(pedido: Venda): boolean {
+  atrasado(pedido: Comanda): boolean {
     return this.minutosEspera(pedido) >= MINUTOS_ATRASO;
   }
 
-  rotuloAcao(pedido: Venda): string {
+  rotuloAcao(pedido: Comanda): string {
     return PROXIMO_STATUS[pedido.status] === 'EM_PREPARO' ? 'Iniciar preparo' : 'Finalizar';
   }
 
-  avancar(pedido: Venda): void {
+  avancar(pedido: Comanda): void {
     const proximo = PROXIMO_STATUS[pedido.status];
     if (!proximo) return;
 
     this.processandoId.set(pedido.id);
     this.erro.set(null);
 
-    this.vendaService.atualizarStatus(pedido.id, proximo).subscribe({
+    this.comandaService.atualizarStatus(pedido.id, proximo).subscribe({
       next: () => {
         this.processandoId.set(null);
         this.carregar(false);

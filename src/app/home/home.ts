@@ -1,7 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService, PERFIS_GESTAO, Perfil } from '../auth/auth.service';
-import { Venda, VendaService, filtrarPorPeriodo } from '../novo-pedido/venda.service';
+import { Comanda, ComandaService, filtrarPorPeriodo } from '../comandas/comanda.service';
 import { CarregandoComponent } from '../../components/carregando/carregando';
 import { PeriodoUtil } from '../utils/periodoUtil';
 import { MensagemErroApiUtil } from '../utils/mensagemErroApiUtil';
@@ -24,7 +24,7 @@ interface AcaoRapida {
 })
 export class Home implements OnInit {
   private authService = inject(AuthService);
-  private vendaService = inject(VendaService);
+  private comandaService = inject(ComandaService);
 
   private readonly todasAcoes: AcaoRapida[] = [
     { label: 'Novo Pedido', descricao: 'Monte um pedido para uma mesa', icon: 'bi-plus-circle', cor: 'laranja', rota: '/novo-pedido' },
@@ -42,7 +42,7 @@ export class Home implements OnInit {
 
   carregando = signal(true);
   erro = signal<string | null>(null);
-  pedidos = signal<Venda[]>([]);
+  pedidos = signal<Comanda[]>([]);
 
   aguardando = computed(() => this.pedidos().filter((p) => p.status === 'ABERTO').length);
   emPreparo = computed(() => this.pedidos().filter((p) => p.status === 'EM_PREPARO').length);
@@ -52,7 +52,7 @@ export class Home implements OnInit {
   });
 
   ngOnInit(): void {
-    this.vendaService.listar().subscribe({
+    this.comandaService.listar().subscribe({
       next: (pedidos) => {
         this.pedidos.set(pedidos);
         this.carregando.set(false);

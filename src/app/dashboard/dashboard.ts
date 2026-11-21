@@ -8,10 +8,11 @@ import {
   STATUS_PEDIDO_LABEL,
   StatusPedido,
   TODOS_STATUS_PEDIDO,
-  Venda,
-  VendaService,
+  Comanda,
+  ComandaService,
   filtrarPorPeriodo,
-} from '../novo-pedido/venda.service';
+} from '../comandas/comanda.service';
+import { ResumoVendas, VendaService } from '../vendas/venda.service';
 import { MensagemErroApiUtil } from '../utils/mensagemErroApiUtil';
 import { PeriodoUtil } from '../utils/periodoUtil';
 
@@ -32,6 +33,7 @@ const ALTURA_GRAFICO = 180;
   styleUrls: ['./dashboard.scss'],
 })
 export class DashboardComponent implements OnInit {
+  private comandaService = inject(ComandaService);
   private vendaService = inject(VendaService);
   private estoqueService = inject(EstoqueService);
 
@@ -39,7 +41,7 @@ export class DashboardComponent implements OnInit {
 
   carregando = signal(true);
   erro = signal<string | null>(null);
-  private pedidos = signal<Venda[]>([]);
+  private pedidos = signal<Comanda[]>([]);
   alertas = signal<Estoque[]>([]);
 
   private hoje = PeriodoUtil.paraIso(new Date());
@@ -47,22 +49,24 @@ export class DashboardComponent implements OnInit {
 
   pedidosHoje = computed(() => filtrarPorPeriodo(this.pedidos(), this.hoje, this.hoje));
   pedidosSemana = computed(() => filtrarPorPeriodo(this.pedidos(), this.inicioSemana, this.hoje));
-  resumoHoje = computed(() => VendaService.resumir(this.pedidosHoje()));
+  /** Faturamento vem das vendas finalizadas; as comandas só alimentam os indicadores de operação. */
+  private resumoVendasHoje = signal<ResumoVendas | null>(null);
+  private resumoVendasSemana = signal<ResumoVendas | null>(null);
+  resumoHoje = computed(
+    () => this.resumoVendasHoje() ?? { totalFaturado: 0, ticketMedio: 0, quantidadeCanceladas: 0 },
+  );
 
   aguardando = computed(() => this.pedidos().filter((p) => p.status === 'ABERTO').length);
   emPreparo = computed(() => this.pedidos().filter((p) => p.status === 'EM_PREPARO').length);
 
-  /** Faturamento (pedidos finalizados) de cada um dos últimos 7 dias. */
+  /** Faturamento (vendas finalizadas) de cada um dos últimos 7 dias. */
   vendasSemana = computed<PontoDia[]>(() => {
+    const porDia = new Map((this.resumoVendasSemana()?.porDia ?? []).map((linha) => [linha.dia, linha.total]));
     const pontos: PontoDia[] = [];
     for (let i = 6; i >= 0; i--) {
       const data = new Date();
       data.setDate(data.getDate() - i);
-      const iso = PeriodoUtil.paraIso(data);
-      const valor = filtrarPorPeriodo(this.pedidos(), iso, iso)
-        .filter((p) => p.status === 'FINALIZADO')
-        .reduce((soma, p) => soma + p.valorTotal, 0);
-      pontos.push({ dia: DIAS_SEMANA[data.getDay()], valor });
+      pontos.push({ dia: DIAS_SEMANA[data.getDay()], valor: porDia.get(PeriodoUtil.paraIso(data)) ?? 0 });
     }
     return pontos;
   });
@@ -125,11 +129,15 @@ export class DashboardComponent implements OnInit {
   carregar(): void {
     this.carregando.set(true);
     forkJoin({
-      pedidos: this.vendaService.listar(),
+      pedidos: this.comandaService.listar(),
+      hoje: this.vendaService.resumir(this.hoje, this.hoje).pipe(catchError(() => of(null))),
+      semana: this.vendaService.resumir(this.inicioSemana, this.hoje).pipe(catchError(() => of(null))),
       alertas: this.estoqueService.listarAlertas().pipe(catchError(() => of([] as Estoque[]))),
     }).subscribe({
-      next: ({ pedidos, alertas }) => {
+      next: ({ pedidos, hoje, semana, alertas }) => {
         this.pedidos.set(pedidos);
+        this.resumoVendasHoje.set(hoje);
+        this.resumoVendasSemana.set(semana);
         this.alertas.set(alertas);
         this.carregando.set(false);
       },

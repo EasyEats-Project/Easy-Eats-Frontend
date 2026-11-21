@@ -96,3 +96,15 @@
 a.btn {
   text-decoration: none;
 }
+
+.link-venda {
+  margin-left: 6px;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+@media print {
+  .link-venda {
+    display: none;
+  }
+}

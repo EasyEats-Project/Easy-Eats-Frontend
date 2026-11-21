@@ -7,6 +7,7 @@ import { GestaoFinanceira } from './gestao-financeira';
 const MOVIMENTACAO: MovimentacaoCaixa = {
   id: 1,
   caixaId: 3,
+  vendaId: null,
   tipo: 'SANGRIA',
   valor: 40,
   descricao: 'Fornecedor',

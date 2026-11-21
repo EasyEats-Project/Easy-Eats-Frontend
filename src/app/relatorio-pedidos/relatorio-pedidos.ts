@@ -5,10 +5,10 @@ import { FiltroPeriodoComponent } from '../../components/filtro-periodo/filtro-p
 import {
   STATUS_PEDIDO_LABEL,
   TODOS_STATUS_PEDIDO,
-  Venda,
-  VendaService,
+  Comanda,
+  ComandaService,
   filtrarPorPeriodo,
-} from '../novo-pedido/venda.service';
+} from '../comandas/comanda.service';
 import { MensagemErroApiUtil } from '../utils/mensagemErroApiUtil';
 import { Periodo, PeriodoUtil } from '../utils/periodoUtil';
 
@@ -22,17 +22,17 @@ const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'
   styleUrl: './relatorio-pedidos.scss',
 })
 export class RelatorioPedidos implements OnInit {
-  private vendaService = inject(VendaService);
+  private comandaService = inject(ComandaService);
 
   readonly statusLabel = STATUS_PEDIDO_LABEL;
 
   carregando = signal(true);
   erro = signal<string | null>(null);
-  private todos = signal<Venda[]>([]);
+  private todos = signal<Comanda[]>([]);
   periodo = signal<Periodo>(PeriodoUtil.resolver('hoje'));
 
   pedidos = computed(() => filtrarPorPeriodo(this.todos(), this.periodo().inicio, this.periodo().fim));
-  resumo = computed(() => VendaService.resumir(this.pedidos()));
+  resumo = computed(() => ComandaService.resumir(this.pedidos()));
 
   taxaCancelamento = computed(() =>
     this.pedidos().length ? (this.resumo().canceladas / this.pedidos().length) * 100 : 0,
@@ -63,7 +63,7 @@ export class RelatorioPedidos implements OnInit {
 
   carregar(): void {
     this.carregando.set(true);
-    this.vendaService.listar().subscribe({
+    this.comandaService.listar().subscribe({
       next: (pedidos) => {
         this.todos.set(pedidos);
         this.carregando.set(false);

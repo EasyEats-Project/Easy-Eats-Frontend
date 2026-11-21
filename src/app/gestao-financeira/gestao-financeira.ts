@@ -40,6 +40,7 @@ export class GestaoFinanceira {
     { valor: 'FUNDO_INICIAL', label: TIPO_MOVIMENTACAO_LABEL.FUNDO_INICIAL },
     { valor: 'SUPRIMENTO', label: TIPO_MOVIMENTACAO_LABEL.SUPRIMENTO },
     { valor: 'SANGRIA', label: TIPO_MOVIMENTACAO_LABEL.SANGRIA },
+    { valor: 'VENDA', label: TIPO_MOVIMENTACAO_LABEL.VENDA },
   ];
 
   periodo = signal<Periodo | null>(null);

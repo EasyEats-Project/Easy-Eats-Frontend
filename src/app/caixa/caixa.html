@@ -98,7 +98,7 @@
                 <tr>
                   <td>{{ l.dataMovimentacao | date: 'HH:mm' }}</td>
                   <td>
-                    <span class="badge" [class.erro]="ehSaida(l.tipo)" [class.sucesso]="l.tipo === 'SUPRIMENTO'" [class.info]="l.tipo === 'FUNDO_INICIAL'">
+                    <span class="badge" [class.erro]="ehSaida(l.tipo)" [class.sucesso]="l.tipo === 'SUPRIMENTO' || l.tipo === 'VENDA'" [class.info]="l.tipo === 'FUNDO_INICIAL'">
                       {{ tipoLabel[l.tipo] }}
                     </span>
                   </td>
