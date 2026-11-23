@@ -2,7 +2,7 @@
   <header class="topo">
     <div>
       <h1>Relatório de Pedidos</h1>
-      <p>Visão consolidada dos pedidos do período (faturamento considera apenas pedidos finalizados)</p>
+      <p>Visão consolidada das comandas do período. O faturamento (vendas pagas) está em Financeiro.</p>
     </div>
     <div class="topo-acoes">
       <button type="button" class="btn btn-secundario" (click)="carregar()" [disabled]="carregando()">
@@ -34,8 +34,8 @@
       <div class="stat-card">
         <div class="stat-icon verde"><i class="bi bi-cash-stack"></i></div>
         <div>
-          <div class="stat-valor">{{ resumo().totalFaturado | currency: 'BRL' }}</div>
-          <div class="stat-label">Faturamento</div>
+          <div class="stat-valor">{{ resumo().totalProntas | currency: 'BRL' }}</div>
+          <div class="stat-label">Valor das comandas prontas</div>
         </div>
       </div>
       <div class="stat-card">

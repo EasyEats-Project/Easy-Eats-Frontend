@@ -8,11 +8,11 @@ import { PERFIS_GESTAO } from './auth/auth.service';
 /*
  * Apenas telas com endpoints existentes no backend (Easy-Eats-Api-2):
  *   /auth, /usuarios, /mesa, /pedido, /item-pedido, /produto, /preco,
- *   /categorias, /ingredientes, /estoques, /produto-ingrediente.
+ *   /categorias, /ingredientes, /estoques, /produto-ingrediente, /caixa.
  *
  * Telas sem API (comandas, clientes, fidelidade, cupons, fornecedores,
- * pedidos de compra, gestão financeira, cardápio digital, grupos de acesso,
- * configurações, confirmar pedido, delivery, caixa e superadmin) continuam
+ * pedidos de compra, cardápio digital, grupos de acesso, configurações,
+ * confirmar pedido, delivery e superadmin) continuam
  * no projeto, mas fora das rotas até o backend expor os respectivos endpoints.
  */
 export const routes: Routes = [
@@ -56,6 +56,9 @@ export const routes: Routes = [
         loadComponent: () => import('./perfil-admin/perfilAdmin').then((m) => m.PerfilAdmin),
       },
 
+      { path: 'conta/:id', title: 'Conta', loadComponent: () => import('./conta/conta').then((m) => m.Conta) },
+      // Caixa: qualquer perfil abre o caixa e lança suprimento; sangria e fechamento são validados pela API
+      { path: 'caixa', title: 'Caixa', loadComponent: () => import('./caixa/caixa').then((m) => m.CaixaComponent) },
       // Administrador e Gerente
       {
         path: 'dashboard',
@@ -117,6 +120,24 @@ export const routes: Routes = [
         loadComponent: () => import('./financeiro/financeiro').then((m) => m.Financeiro),
       },
 
+      {
+        path: 'caixa-historico',
+        title: 'Histórico de Caixas',
+        canActivate: [perfilGuard(PERFIS_GESTAO)],
+        loadComponent: () => import('./caixa-historico/caixa-historico').then((m) => m.CaixaHistorico),
+      },
+      {
+        path: 'caixa-relatorio/:id',
+        title: 'Relatório de Fechamento',
+        canActivate: [perfilGuard(PERFIS_GESTAO)],
+        loadComponent: () => import('./caixa-relatorio/caixa-relatorio').then((m) => m.CaixaRelatorio),
+      },
+      {
+        path: 'gestao-financeira',
+        title: 'Lançamentos do Caixa',
+        canActivate: [perfilGuard(PERFIS_GESTAO)],
+        loadComponent: () => import('./gestao-financeira/gestao-financeira').then((m) => m.GestaoFinanceira),
+      },
       // Somente Administrador
       {
         path: 'usuarios',

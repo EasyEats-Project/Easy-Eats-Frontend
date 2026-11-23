@@ -1,22 +1,18 @@
+import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
-import { catchError, forkJoin, of } from 'rxjs';
+import { Router, RouterLink } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import { CarregandoComponent } from '../../components/carregando/carregando';
 import { AuthService, PERFIS_GESTAO } from '../auth/auth.service';
-import { Venda, VendaService } from '../novo-pedido/venda.service';
 import { MensagemErroApiUtil } from '../utils/mensagemErroApiUtil';
-import { Mesa, MesaService } from './mesa.service';
-
-interface MesaComOcupacao extends Mesa {
-  pedidosAbertos: Venda[];
-}
+import { OcupacaoMesa, VendaResumo, VendaService } from '../vendas/venda.service';
+import { MesaService } from './mesa.service';
 
 @Component({
   selector: 'app-mesas',
   standalone: true,
-  imports: [CurrencyPipe, FormsModule, CarregandoComponent],
+  imports: [CurrencyPipe, DatePipe, FormsModule, RouterLink, CarregandoComponent],
   templateUrl: './mesas.html',
   styleUrl: './mesas.scss',
 })
@@ -24,6 +20,7 @@ export class Mesas implements OnInit {
   private mesaService = inject(MesaService);
   private vendaService = inject(VendaService);
   private router = inject(Router);
+
   readonly podeGerenciar = inject(AuthService).temPerfil(PERFIS_GESTAO);
 
   carregando = signal(true);
@@ -31,22 +28,14 @@ export class Mesas implements OnInit {
   erro = signal<string | null>(null);
   sucesso = signal<string | null>(null);
 
-  private mesas = signal<Mesa[]>([]);
-  private pedidos = signal<Venda[]>([]);
+  /** Situação de cada mesa vinda do backend: ocupada enquanto houver venda aberta nela. */
+  mesas = signal<OcupacaoMesa[]>([]);
+  retiradas = signal<VendaResumo[]>([]);
 
   numero: number | null = null;
-  editando = signal<Mesa | null>(null);
+  editando = signal<OcupacaoMesa | null>(null);
 
-  mesasComOcupacao = computed<MesaComOcupacao[]>(() =>
-    this.mesas().map((mesa) => ({
-      ...mesa,
-      pedidosAbertos: this.pedidos().filter(
-        (p) => p.mesa?.id === mesa.id && (p.status === 'ABERTO' || p.status === 'EM_PREPARO'),
-      ),
-    })),
-  );
-
-  totalOcupadas = computed(() => this.mesasComOcupacao().filter((m) => m.pedidosAbertos.length > 0).length);
+  totalOcupadas = computed(() => this.mesas().filter((m) => m.ocupada).length);
   totalLivres = computed(() => this.mesas().length - this.totalOcupadas());
 
   ngOnInit(): void {
@@ -55,14 +44,13 @@ export class Mesas implements OnInit {
 
   carregar(): void {
     this.carregando.set(true);
-
     forkJoin({
-      mesas: this.mesaService.listar(),
-      pedidos: this.vendaService.listar().pipe(catchError(() => of([] as Venda[]))),
+      mesas: this.vendaService.ocupacaoMesas(),
+      abertas: this.vendaService.abertas(),
     }).subscribe({
-      next: ({ mesas, pedidos }) => {
+      next: ({ mesas, abertas }) => {
         this.mesas.set(mesas);
-        this.pedidos.set(pedidos);
+        this.retiradas.set(abertas.filter((venda) => venda.tipo === 'RETIRADA'));
         this.carregando.set(false);
       },
       error: (erro) => {
@@ -72,12 +60,12 @@ export class Mesas implements OnInit {
     });
   }
 
-  totalMesa(mesa: MesaComOcupacao): number {
-    return mesa.pedidosAbertos.reduce((soma, pedido) => soma + pedido.valorTotal, 0);
+  novoPedido(mesa: OcupacaoMesa): void {
+    this.router.navigate(['/novo-pedido'], { queryParams: { mesa: mesa.mesaId } });
   }
 
-  novoPedido(mesa: Mesa): void {
-    this.router.navigate(['/novo-pedido'], { queryParams: { mesa: mesa.id } });
+  novaRetirada(): void {
+    this.router.navigate(['/novo-pedido'], { queryParams: { tipo: 'retirada' } });
   }
 
   salvar(): void {
@@ -86,15 +74,12 @@ export class Mesas implements OnInit {
       this.erro.set('Informe um número de mesa inteiro e maior que zero.');
       return;
     }
-
     const editando = this.editando();
     this.salvando.set(true);
     this.erro.set(null);
-
     const requisicao = editando
-      ? this.mesaService.atualizar(editando.id, numero)
+      ? this.mesaService.atualizar(editando.mesaId, numero)
       : this.mesaService.criar(numero);
-
     requisicao.subscribe({
       next: () => {
         this.salvando.set(false);
@@ -109,7 +94,7 @@ export class Mesas implements OnInit {
     });
   }
 
-  editar(mesa: Mesa): void {
+  editar(mesa: OcupacaoMesa): void {
     this.editando.set(mesa);
     this.numero = mesa.numero;
   }
@@ -119,16 +104,15 @@ export class Mesas implements OnInit {
     this.numero = null;
   }
 
-  excluir(mesa: MesaComOcupacao): void {
-    if (mesa.pedidosAbertos.length > 0) {
-      this.erro.set(`A mesa ${mesa.numero} tem pedidos em andamento e não pode ser excluída agora.`);
+  excluir(mesa: OcupacaoMesa): void {
+    if (mesa.ocupada) {
+      this.erro.set(`A mesa ${mesa.numero} tem uma conta aberta e não pode ser excluída agora.`);
       return;
     }
     if (!confirm(`Excluir a mesa ${mesa.numero}?`)) {
       return;
     }
-
-    this.mesaService.excluir(mesa.id).subscribe({
+    this.mesaService.excluir(mesa.mesaId).subscribe({
       next: () => {
         this.mostrarSucesso(`Mesa ${mesa.numero} excluída.`);
         this.carregar();

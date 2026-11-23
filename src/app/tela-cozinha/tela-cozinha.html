@@ -30,8 +30,8 @@
       <section class="coluna">
         <div class="coluna-titulo aguardando">Aguardando <span>{{ aguardando().length }}</span></div>
         <div class="cartoes">
-          @for (venda of aguardando(); track venda.id) {
-            <ng-container *ngTemplateOutlet="cartao; context: { $implicit: venda, acao: 'Iniciar preparo', icone: 'bi-play-fill' }"></ng-container>
+          @for (comanda of aguardando(); track comanda.id) {
+            <ng-container *ngTemplateOutlet="cartao; context: { $implicit: comanda, acao: 'Iniciar preparo', icone: 'bi-play-fill' }"></ng-container>
           } @empty {
             <p class="vazio">Nenhum pedido aguardando</p>
           }
@@ -41,8 +41,8 @@
       <section class="coluna">
         <div class="coluna-titulo preparando">Em preparo <span>{{ preparando().length }}</span></div>
         <div class="cartoes">
-          @for (venda of preparando(); track venda.id) {
-            <ng-container *ngTemplateOutlet="cartao; context: { $implicit: venda, acao: 'Finalizar', icone: 'bi-check-lg' }"></ng-container>
+          @for (comanda of preparando(); track comanda.id) {
+            <ng-container *ngTemplateOutlet="cartao; context: { $implicit: comanda, acao: 'Finalizar', icone: 'bi-check-lg' }"></ng-container>
           } @empty {
             <p class="vazio">Nenhum pedido em preparo</p>
           }
@@ -52,17 +52,17 @@
   }
 </div>
 
-<ng-template #cartao let-venda let-acao="acao" let-icone="icone">
+<ng-template #cartao let-comanda let-acao="acao" let-icone="icone">
   <article class="cartao">
     <div class="cartao-topo">
-      <strong>#{{ venda.id }} · {{ identificacao(venda) }}</strong>
-      <span>{{ venda.dataCriacao ? (venda.dataCriacao | date: 'HH:mm') : '' }}</span>
+      <strong>#{{ comanda.id }} · {{ identificacao(comanda) }}</strong>
+      <span>{{ comanda.dataCriacao ? (comanda.dataCriacao | date: 'HH:mm') : '' }}</span>
     </div>
-    @if (venda.nomeCliente && venda.mesa) {
-      <span class="cartao-cliente"><i class="bi bi-person"></i> {{ venda.nomeCliente }}</span>
+    @if (comanda.nomeCliente && comanda.mesa) {
+      <span class="cartao-cliente"><i class="bi bi-person"></i> {{ comanda.nomeCliente }}</span>
     }
     <ul>
-      @for (item of venda.itens; track $index) {
+      @for (item of comanda.itens; track $index) {
         <li><strong>{{ item.quantidade }}×</strong> {{ item.produto.nome }}</li>
       }
     </ul>
@@ -70,10 +70,10 @@
       type="button"
       class="btn btn-primario btn-bloco"
       [disabled]="processandoId() !== null"
-      (click)="avancar(venda)"
+      (click)="avancar(comanda)"
     >
       <i class="bi" [class]="icone"></i>
-      {{ processandoId() === venda.id ? 'Atualizando...' : acao }}
+      {{ processandoId() === comanda.id ? 'Atualizando...' : acao }}
     </button>
   </article>
 </ng-template>

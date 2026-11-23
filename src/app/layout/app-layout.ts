@@ -7,7 +7,7 @@ import { Sidebar } from '../../components/sidebar/sidebar';
 import { AuthService, PERFIL_LABEL, PERFIS_GESTAO } from '../auth/auth.service';
 import { ThemeService } from '../theme/theme.service';
 import { EstoqueService } from '../controle-estoque/estoque.service';
-import { VendaService } from '../novo-pedido/venda.service';
+import { ComandaService } from '../comandas/comanda.service';
 
 const CHAVE_SIDEBAR_COLAPSADO = 'easyeats.sidebarColapsado';
 const INTERVALO_NOTIFICACOES_MS = 60_000;
@@ -33,7 +33,7 @@ export class AppLayout implements OnInit {
   themeService = inject(ThemeService);
   private router = inject(Router);
   private estoqueService = inject(EstoqueService);
-  private vendaService = inject(VendaService);
+  private comandaService = inject(ComandaService);
   private destroyRef = inject(DestroyRef);
 
   colapsado = signal(localStorage.getItem(CHAVE_SIDEBAR_COLAPSADO) === 'true');
@@ -64,7 +64,7 @@ export class AppLayout implements OnInit {
         startWith(0),
         switchMap(() =>
           forkJoin({
-            aguardando: this.vendaService.listarPorStatus('ABERTO').pipe(catchError(() => of([]))),
+            aguardando: this.comandaService.listarPorStatus('ABERTO').pipe(catchError(() => of([]))),
             alertas: gestao ? this.estoqueService.listarAlertas().pipe(catchError(() => of([]))) : of([]),
           }),
         ),

@@ -2,18 +2,22 @@
   <header class="topo">
     <div>
       <h1>Novo Pedido</h1>
-      <p>Selecione a mesa e os produtos. O preço é calculado pela API a partir do preço ativo de cada produto.</p>
+      <p>Escolha os produtos e finalize o pedido para mesa, retirada ou delivery. O preço vem do preço ativo de cada produto.</p>
     </div>
   </header>
 
-  @if (sucesso()) {
-    <div class="alerta alerta-sucesso" role="status">
-      <i class="bi bi-check-circle"></i>
-      <span class="alerta-texto">{{ sucesso() }} <a routerLink="/tela-cozinha">Ver na cozinha</a></span>
+  @if (confirmacao(); as c) {
+    <div class="alerta" [class.alerta-sucesso]="!c.aviso" [class.alerta-aviso]="c.aviso" role="status">
+      <i class="bi" [class.bi-check-circle]="!c.aviso" [class.bi-exclamation-triangle]="c.aviso"></i>
+      <span class="alerta-texto">
+        {{ c.mensagem }}
+        <a routerLink="/tela-cozinha">Ver na cozinha</a>
+        @if (c.vendaId) {
+          · <a [routerLink]="['/conta', c.vendaId]">Ver conta</a>
+        }
+      </span>
     </div>
-  }
-
-  @if (erro()) {
+  }  @if (erro()) {
     <div class="alerta alerta-erro" role="alert">
       <i class="bi bi-exclamation-circle"></i>
       <span class="alerta-texto">{{ erro() }}</span>
@@ -26,26 +30,6 @@
   } @else {
     <div class="wrapper">
       <div class="conteudo">
-        <div class="painel dados-pedido">
-          <div class="campo">
-            <label for="mesa">Mesa *</label>
-            <select id="mesa" [ngModel]="mesaSelecionada()" (ngModelChange)="mesaSelecionada.set($event)">
-              <option [ngValue]="null">Selecione a mesa...</option>
-              @for (mesa of mesas(); track mesa.id) {
-                <option [ngValue]="mesa.id">Mesa {{ mesa.numero }}</option>
-              }
-            </select>
-            @if (mesas().length === 0) {
-              <small class="erro-campo">Nenhuma mesa cadastrada. Cadastre em <a routerLink="/mesas">Mesas</a>.</small>
-            }
-          </div>
-
-          <div class="campo">
-            <label for="cliente">Cliente</label>
-            <input id="cliente" type="text" placeholder="Nome do cliente (opcional)" [(ngModel)]="cliente" />
-          </div>
-        </div>
-
         <div class="barra-produtos">
           <input
             type="search"
@@ -137,14 +121,147 @@
           <strong>{{ total() | currency: 'BRL' }}</strong>
         </div>
 
-        @if (carrinho().length > 0 && mesaSelecionada() === null) {
-          <small class="aviso-finalizar"><i class="bi bi-info-circle"></i> Selecione uma mesa para finalizar.</small>
-        }
-
-        <button type="button" class="btn btn-primario btn-bloco" [disabled]="!podeFinalizar()" (click)="confirmarPedido()">
-          {{ enviando() ? 'Enviando...' : 'Finalizar pedido' }}
+        <button type="button" class="btn btn-primario btn-bloco" [disabled]="carrinho().length === 0" (click)="abrirModal()">
+          Finalizar pedido
         </button>
       </aside>
     </div>
   }
 </div>
+
+@if (modalAberto()) {
+  <div class="modal-fundo" (click)="fecharModal()">
+    <div class="modal-caixa modal-pedido" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <h3>Finalizar pedido</h3>
+      <p>{{ quantidadeItens() }} item(ns) · <strong>{{ total() | currency: 'BRL' }}</strong></p>
+
+      <div class="campo">
+        <label>Atendimento</label>
+        <div class="filtros tipos-atendimento">
+          <button
+            type="button"
+            [class.ativo]="tipoAtendimento() === 'MESA'"
+            [disabled]="vendaDaRetirada() !== null"
+            (click)="selecionarAtendimento('MESA')"
+          >
+            <i class="bi bi-grid-3x3-gap"></i> Mesa
+          </button>
+          <button type="button" [class.ativo]="tipoAtendimento() === 'RETIRADA'" (click)="selecionarAtendimento('RETIRADA')">
+            <i class="bi bi-bag-check"></i> Retirada
+          </button>
+          <button type="button" disabled title="O delivery estará disponível em breve">
+            <i class="bi bi-bicycle"></i> Delivery <span class="badge neutro">Em breve</span>
+          </button>
+        </div>
+      </div>
+
+      @if (tipoAtendimento() === 'MESA') {
+        <div class="campo">
+          <label for="modal-mesa">Mesa *</label>
+          <select id="modal-mesa" [ngModel]="mesaSelecionada()" (ngModelChange)="mesaSelecionada.set($event)">
+            <option [ngValue]="null">Selecione a mesa...</option>
+            @for (mesa of mesas(); track mesa.id) {
+              <option [ngValue]="mesa.id">Mesa {{ mesa.numero }}</option>
+            }
+          </select>
+          @if (mesas().length === 0) {
+            <small class="erro-campo">Nenhuma mesa cadastrada. Cadastre em <a routerLink="/mesas">Mesas</a>.</small>
+          }
+        </div>
+      }
+
+      <div class="campo">
+        <label for="modal-cliente">{{ tipoAtendimento() === 'RETIRADA' ? 'Nome do cliente *' : 'Cliente (opcional)' }}</label>
+        <input
+          id="modal-cliente"
+          type="text"
+          maxlength="255"
+          [placeholder]="tipoAtendimento() === 'RETIRADA' ? 'Nome para chamar quando ficar pronto' : 'Nome do cliente'"
+          [readonly]="vendaDaRetirada() !== null"
+          [ngModel]="cliente()"
+          (ngModelChange)="cliente.set($event)"
+        />
+      </div>
+
+      <div class="campo">
+        <label for="modal-observacao">Observações</label>
+        <textarea
+          id="modal-observacao"
+          rows="2"
+          maxlength="255"
+          placeholder="Ex: sem cebola, molho à parte"
+          [ngModel]="observacao()"
+          (ngModelChange)="observacao.set($event)"
+        ></textarea>
+      </div>
+
+      @if (vendaDaRetirada() === null) {
+        <div class="campo">
+          <label for="modal-forma">Forma de pagamento</label>
+          <select id="modal-forma" [ngModel]="formaPagamento()" (ngModelChange)="selecionarForma($event)">
+            <option [ngValue]="null">{{ tipoAtendimento() === 'RETIRADA' ? 'Pagar na retirada' : 'Pagar depois (na conta da mesa)' }}</option>
+            @for (forma of formasPagamento; track forma) {
+              <option [ngValue]="forma">{{ formaLabel[forma] }}</option>
+            }
+          </select>
+          <small class="ajuda-campo">
+            @if (formaPagamento() === null) {
+              {{
+                tipoAtendimento() === 'RETIRADA'
+                  ? 'A retirada fica em aberto até o pagamento (veja em Mesas, Retiradas em aberto).'
+                  : 'O pagamento é feito na conta da mesa, ao final.'
+              }}
+            } @else {
+              {{
+                tipoAtendimento() === 'RETIRADA'
+                  ? 'O pagamento é registrado e a retirada é finalizada agora.'
+                  : 'O valor deste pedido fica pago na conta. A mesa só libera quando a conta for finalizada.'
+              }}
+            }
+          </small>
+        </div>
+
+        @if (formaPagamento() === 'DINHEIRO') {
+          <div class="campo-linha">
+            <div class="campo">
+              <label for="modal-recebido">Valor recebido (R$)</label>
+              <input
+                id="modal-recebido"
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder="Opcional"
+                [ngModel]="valorRecebido()"
+                (ngModelChange)="valorRecebido.set($event)"
+              />
+            </div>
+            <div class="campo">
+              <label>Troco</label>
+              <div class="troco">{{ troco() | currency: 'BRL' }}</div>
+            </div>
+          </div>
+        }
+
+        @if (caixaFechado()) {
+          <div class="alerta alerta-aviso" role="alert">
+            <i class="bi bi-exclamation-triangle"></i>
+            <span class="alerta-texto">O caixa está fechado. <a routerLink="/caixa">Abrir o caixa</a> ou escolha pagar na retirada.</span>
+          </div>
+        }
+      } @else {
+        <small class="ajuda-campo">Este pedido entra na retirada já aberta. O pagamento é feito na conta.</small>
+      }
+
+      @if (pendenciaDoModal(); as pendencia) {
+        <small class="erro-campo">{{ pendencia }}</small>
+      }
+
+      <div class="acoes-form">
+        <button type="button" class="btn btn-secundario" (click)="fecharModal()" [disabled]="enviando()">Voltar</button>
+        <button type="button" class="btn btn-primario" [disabled]="!podeConfirmar()" (click)="confirmarPedido()">
+          {{ enviando() ? 'Enviando...' : 'Confirmar pedido' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

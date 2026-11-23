@@ -30,7 +30,7 @@
     <div class="stat-card">
       <div class="stat-icon azul"><i class="bi bi-receipt"></i></div>
       <div>
-        <div class="stat-valor">{{ vendasFiltradas().length }}</div>
+        <div class="stat-valor">{{ comandasFiltradas().length }}</div>
         <div class="stat-label">Pedidos listados</div>
       </div>
     </div>
@@ -57,23 +57,23 @@
       <app-carregando texto="Carregando pedidos..."></app-carregando>
     } @else {
       <div class="lista-pedidos">
-        @for (venda of vendasFiltradas(); track venda.id) {
+        @for (comanda of comandasFiltradas(); track comanda.id) {
           <article class="card-pedido">
             <div class="card-pedido__topo">
               <div>
-                <strong>#{{ venda.id }} · {{ identificacao(venda) }}</strong>
+                <strong>#{{ comanda.id }} · {{ identificacao(comanda) }}</strong>
                 <span class="card-pedido__data">
-                  {{ venda.dataCriacao ? (venda.dataCriacao | date: 'dd/MM/yyyy HH:mm') : '—' }}
-                  @if (venda.nomeCliente && venda.mesa) {
-                    · {{ venda.nomeCliente }}
+                  {{ comanda.dataCriacao ? (comanda.dataCriacao | date: 'dd/MM/yyyy HH:mm') : '—' }}
+                  @if (comanda.nomeCliente && comanda.mesa) {
+                    · {{ comanda.nomeCliente }}
                   }
                 </span>
               </div>
-              <span class="badge status-{{ venda.status }}">{{ statusLabel[venda.status] }}</span>
+              <span class="badge status-{{ comanda.status }}">{{ statusLabel[comanda.status] }}</span>
             </div>
 
             <ul class="card-pedido__itens">
-              @for (item of venda.itens; track $index) {
+              @for (item of comanda.itens; track $index) {
                 <li>
                   <span>{{ item.quantidade }}× {{ item.produto.nome }}</span>
                   <span>{{ item.valor_total | currency: 'BRL' }}</span>
@@ -82,25 +82,25 @@
             </ul>
 
             <div class="card-pedido__rodape">
-              <strong class="valor-pedido">{{ venda.valorTotal | currency: 'BRL' }}</strong>
+              <strong class="valor-pedido">{{ comanda.valorTotal | currency: 'BRL' }}</strong>
 
               <div class="linha-acoes">
-                @if (podeCancelar(venda)) {
+                @if (podeCancelar(comanda)) {
                   <button
                     type="button"
                     class="btn btn-perigo btn-sm"
-                    [disabled]="processandoId() === venda.id"
-                    (click)="cancelar(venda)"
+                    [disabled]="processandoId() === comanda.id"
+                    (click)="cancelar(comanda)"
                   >
                     Cancelar
                   </button>
                 }
-                @if (proximoStatus(venda); as proximo) {
+                @if (proximoStatus(comanda); as proximo) {
                   <button
                     type="button"
                     class="btn btn-primario btn-sm"
-                    [disabled]="processandoId() === venda.id"
-                    (click)="avancar(venda)"
+                    [disabled]="processandoId() === comanda.id"
+                    (click)="avancar(comanda)"
                   >
                     {{ proximo === 'EM_PREPARO' ? 'Iniciar preparo' : 'Finalizar' }}
                   </button>

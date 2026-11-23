@@ -2,7 +2,7 @@ import { DecimalPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CarregandoComponent } from '../../components/carregando/carregando';
 import { FiltroPeriodoComponent } from '../../components/filtro-periodo/filtro-periodo';
-import { Venda, VendaService, filtrarPorPeriodo } from '../novo-pedido/venda.service';
+import { Comanda, ComandaService, filtrarPorPeriodo } from '../comandas/comanda.service';
 import { MensagemErroApiUtil } from '../utils/mensagemErroApiUtil';
 import { Periodo, PeriodoUtil } from '../utils/periodoUtil';
 
@@ -17,13 +17,13 @@ const MINUTOS_ATRASO = 20;
   styleUrl: './relatorio-cozinha.scss',
 })
 export class RelatorioCozinha implements OnInit {
-  private vendaService = inject(VendaService);
+  private comandaService = inject(ComandaService);
 
   readonly minutosAtraso = MINUTOS_ATRASO;
 
   carregando = signal(true);
   erro = signal<string | null>(null);
-  private todos = signal<Venda[]>([]);
+  private todos = signal<Comanda[]>([]);
   periodo = signal<Periodo>(PeriodoUtil.resolver('hoje'));
 
   private pedidos = computed(() => filtrarPorPeriodo(this.todos(), this.periodo().inicio, this.periodo().fim));
@@ -81,7 +81,7 @@ export class RelatorioCozinha implements OnInit {
 
   carregar(): void {
     this.carregando.set(true);
-    this.vendaService.listar().subscribe({
+    this.comandaService.listar().subscribe({
       next: (pedidos) => {
         this.todos.set(pedidos);
         this.carregando.set(false);
@@ -93,7 +93,7 @@ export class RelatorioCozinha implements OnInit {
     });
   }
 
-  private minutosAtendimento(pedido: Venda): number | null {
+  private minutosAtendimento(pedido: Comanda): number | null {
     if (!pedido.dataCriacao || !pedido.dataAlteracao) return null;
     const minutos = (new Date(pedido.dataAlteracao).getTime() - new Date(pedido.dataCriacao).getTime()) / 60000;
     return minutos >= 0 ? minutos : null;

@@ -923,3 +923,43 @@ html[data-theme='escuro'] .campo-texto input {
 .lista-ranking li.vazio {
   justify-content: center;
 }
+
+/* ------------------------------------------------------------ IMPRESSÃO -- */
+/* Relatórios imprimíveis: esconde a navegação e força o tema claro no papel. */
+@media print {
+  app-sidebar,
+  .topbar,
+  .no-print {
+    display: none !important;
+  }
+
+  :root,
+  :root[data-theme='escuro'] {
+    color-scheme: light;
+    --color-text: #111827;
+    --color-text-secondary: #374151;
+    --color-text-muted: #6b7280;
+    --color-text-subtle: #6b7280;
+    --color-bg-page: #ffffff;
+    --color-bg-surface: #ffffff;
+    --color-bg-muted: #ffffff;
+    --color-bg-hover: #f3f4f6;
+    --color-border: #d1d5db;
+    --color-border-soft: #e5e7eb;
+  }
+
+  body,
+  .layout {
+    background: #ffffff !important;
+  }
+
+  .pagina {
+    padding: 0 !important;
+  }
+
+  .painel,
+  .stat-card,
+  .tabela tr {
+    break-inside: avoid;
+  }
+}

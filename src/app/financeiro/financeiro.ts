@@ -1,77 +1,117 @@
-import { CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
+import { Component, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import { CarregandoComponent } from '../../components/carregando/carregando';
 import { FiltroPeriodoComponent } from '../../components/filtro-periodo/filtro-periodo';
-import { Venda, VendaService, filtrarPorPeriodo, identificacaoPedido } from '../novo-pedido/venda.service';
+import { PaginacaoComponent } from '../../components/paginacao/paginacao';
+import { Pagina } from '../caixa/caixa.service';
 import { MensagemErroApiUtil } from '../utils/mensagemErroApiUtil';
-import { Periodo, PeriodoUtil } from '../utils/periodoUtil';
+import { Periodo } from '../utils/periodoUtil';
+import {
+  FORMA_PAGAMENTO_LABEL,
+  ResumoVendas,
+  TIPO_VENDA_LABEL,
+  VendaResumo,
+  VendaService,
+} from '../vendas/venda.service';
 
+const TAMANHO_PAGINA = 10;
+
+/** Faturamento por período: vendas finalizadas, pela data em que a conta foi fechada. */
 @Component({
   selector: 'app-financeiro',
   standalone: true,
   templateUrl: './financeiro.html',
-  imports: [CurrencyPipe, DatePipe, CarregandoComponent, FiltroPeriodoComponent],
+  imports: [CurrencyPipe, DatePipe, DecimalPipe, RouterLink, CarregandoComponent, FiltroPeriodoComponent, PaginacaoComponent],
   styleUrls: ['./financeiro.scss'],
 })
-export class Financeiro implements OnInit {
+export class Financeiro {
   private vendaService = inject(VendaService);
 
-  readonly identificacao = identificacaoPedido;
+  readonly formaLabel = FORMA_PAGAMENTO_LABEL;
+  readonly tipoLabel = TIPO_VENDA_LABEL;
 
   carregando = signal(true);
   erro = signal<string | null>(null);
-  private todos = signal<Venda[]>([]);
-  periodo = signal<Periodo>(PeriodoUtil.resolver('hoje'));
+  periodo = signal<Periodo | null>(null);
+  resumo = signal<ResumoVendas | null>(null);
+  pagina = signal<Pagina<VendaResumo> | null>(null);
+  /** Soma das contas ainda abertas (mesas e retiradas), independente do período. */
+  emAberto = signal(0);
 
-  private pedidosPeriodo = computed(() => filtrarPorPeriodo(this.todos(), this.periodo().inicio, this.periodo().fim));
-  relatorio = computed(() => VendaService.resumir(this.pedidosPeriodo()));
-
-  /** Valor ainda em aberto (pedidos aguardando ou em preparo no período). */
-  emAberto = computed(() =>
-    this.pedidosPeriodo()
-      .filter((p) => p.status === 'ABERTO' || p.status === 'EM_PREPARO')
-      .reduce((soma, p) => soma + p.valorTotal, 0),
-  );
-
-  finalizados = computed(() =>
-    this.pedidosPeriodo()
-      .filter((p) => p.status === 'FINALIZADO')
-      .sort((a, b) => (b.dataCriacao ?? '').localeCompare(a.dataCriacao ?? '')),
-  );
-
-  porDia = computed(() => {
-    const mapa = new Map<string, { dia: string; quantidade: number; valor: number }>();
-    for (const pedido of this.finalizados()) {
-      const dia = (pedido.dataCriacao ?? '').slice(0, 10);
-      const linha = mapa.get(dia) ?? { dia, quantidade: 0, valor: 0 };
-      linha.quantidade++;
-      linha.valor += pedido.valorTotal;
-      mapa.set(dia, linha);
-    }
-    return [...mapa.values()].sort((a, b) => b.dia.localeCompare(a.dia));
-  });
-
-  ngOnInit(): void {
+  /** O filtro de período emite o intervalo inicial ao montar, o que dispara a primeira carga. */
+  aplicarPeriodo(periodo: Periodo): void {
+    this.periodo.set(periodo);
     this.carregar();
   }
 
   carregar(): void {
+    const periodo = this.periodo();
+    if (!periodo) {
+      return;
+    }
     this.carregando.set(true);
     this.erro.set(null);
-
-    this.vendaService.listar().subscribe({
-      next: (pedidos) => {
-        this.todos.set(pedidos);
+    forkJoin({
+      resumo: this.vendaService.resumir(periodo.inicio, periodo.fim),
+      pagina: this.listarFinalizadas(periodo, 0),
+      abertas: this.vendaService.abertas(),
+    }).subscribe({
+      next: ({ resumo, pagina, abertas }) => {
+        this.resumo.set(resumo);
+        this.pagina.set(pagina);
+        this.emAberto.set(abertas.reduce((soma, venda) => soma + venda.valorTotal, 0));
         this.carregando.set(false);
       },
       error: (erro) => {
-        this.erro.set(MensagemErroApiUtil.extrair(erro, 'Não foi possível carregar o faturamento.'));
+        this.erro.set(MensagemErroApiUtil.extrair(erro, 'Não foi possível carregar o faturamento do período.'));
         this.carregando.set(false);
       },
     });
   }
 
+  /** Troca de página: o resumo do período não muda, então só a lista é buscada de novo. */
+  irParaPagina(numeroPagina: number): void {
+    const periodo = this.periodo();
+    if (!periodo) {
+      return;
+    }
+    this.carregando.set(true);
+    this.listarFinalizadas(periodo, numeroPagina).subscribe({
+      next: (pagina) => {
+        this.pagina.set(pagina);
+        this.carregando.set(false);
+      },
+      error: (erro) => {
+        this.erro.set(MensagemErroApiUtil.extrair(erro, 'Não foi possível carregar as vendas.'));
+        this.carregando.set(false);
+      },
+    });
+  }
+
+  /** Percentual de cada forma de pagamento no total faturado (para a coluna de participação). */
+  percentual(total: number): number {
+    const faturado = this.resumo()?.totalFaturado ?? 0;
+    return faturado > 0 ? (total / faturado) * 100 : 0;
+  }
+
   dataDoDia(dia: string): Date {
     return new Date(`${dia}T00:00:00`);
+  }
+
+  identificacao(venda: VendaResumo): string {
+    if (venda.tipo === 'MESA') {
+      return `Mesa ${venda.numeroMesa ?? ''}`.trim();
+    }
+    return `${this.tipoLabel[venda.tipo]}${venda.nomeCliente ? ' · ' + venda.nomeCliente : ''}`;
+  }
+
+  private listarFinalizadas(periodo: Periodo, numeroPagina: number) {
+    return this.vendaService.listar(
+      { status: 'FINALIZADA', inicio: periodo.inicio, fim: periodo.fim },
+      numeroPagina,
+      TAMANHO_PAGINA,
+    );
   }
 }

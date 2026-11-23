@@ -2,9 +2,12 @@
   <header class="topo">
     <div>
       <h1>Mesas</h1>
-      <p>Selecione uma mesa para lançar um pedido. A ocupação é calculada pelos pedidos em andamento.</p>
+      <p>Selecione uma mesa para lançar um pedido. A mesa fica ocupada até a conta ser finalizada ou cancelada.</p>
     </div>
     <div class="topo-acoes">
+      <button type="button" class="btn btn-secundario" (click)="novaRetirada()">
+        <i class="bi bi-bag-check"></i> Nova retirada
+      </button>
       <button type="button" class="btn btn-secundario" (click)="carregar()" [disabled]="carregando()">
         <i class="bi bi-arrow-clockwise"></i> Atualizar
       </button>
@@ -69,29 +72,35 @@
         <app-carregando texto="Carregando mesas..."></app-carregando>
       } @else {
         <div class="grid-mesas">
-          @for (mesa of mesasComOcupacao(); track mesa.id) {
-            <div class="cartao-mesa" [class.ocupada]="mesa.pedidosAbertos.length > 0">
+          @for (mesa of mesas(); track mesa.mesaId) {
+            <div class="cartao-mesa" [class.ocupada]="mesa.ocupada">
               <div class="cartao-mesa__topo">
                 <span class="numero-mesa">Mesa {{ mesa.numero }}</span>
-                @if (mesa.pedidosAbertos.length > 0) {
+                @if (mesa.ocupada) {
                   <span class="badge laranja">Ocupada</span>
                 } @else {
                   <span class="badge sucesso">Livre</span>
                 }
               </div>
-
-              @if (mesa.pedidosAbertos.length > 0) {
+              @if (mesa.ocupada) {
                 <span class="cartao-mesa__info">
-                  {{ mesa.pedidosAbertos.length }} pedido(s) · {{ totalMesa(mesa) | currency: 'BRL' }}
+                  {{ mesa.quantidadeComandas }} comanda(s) · {{ mesa.valorParcial | currency: 'BRL' }}
                 </span>
+                @if (mesa.nomeCliente) {
+                  <span class="cartao-mesa__info"><i class="bi bi-person"></i> {{ mesa.nomeCliente }}</span>
+                }
               } @else {
-                <span class="cartao-mesa__info">Sem pedidos em andamento</span>
+                <span class="cartao-mesa__info">Sem conta aberta</span>
               }
-
               <div class="cartao-mesa__acoes">
                 <button type="button" class="btn btn-primario btn-sm" (click)="novoPedido(mesa)">
                   <i class="bi bi-plus-circle"></i> Pedido
                 </button>
+                @if (mesa.ocupada) {
+                  <a class="btn btn-secundario btn-sm" [routerLink]="['/conta', mesa.vendaId]" title="Ver a conta da mesa">
+                    <i class="bi bi-receipt"></i> Conta
+                  </a>
+                }
                 @if (podeGerenciar) {
                   <button type="button" class="btn-icone" (click)="editar(mesa)" title="Editar" aria-label="Editar mesa">
                     <i class="bi bi-pencil"></i>
@@ -114,4 +123,25 @@
       }
     </section>
   </div>
+
+  @if (retiradas().length > 0) {
+    <section class="painel painel-retiradas">
+      <h3>Retiradas em aberto</h3>
+      <div class="lista">
+        @for (retirada of retiradas(); track retirada.id) {
+          <div class="linha">
+            <div class="linha-info">
+              <strong><i class="bi bi-bag-check"></i> {{ retirada.nomeCliente }}</strong>
+              <span>Aberta às {{ retirada.dataAbertura | date: 'HH:mm' }} · {{ retirada.valorTotal | currency: 'BRL' }}</span>
+            </div>
+            <div class="linha-acoes">
+              <a class="btn btn-secundario btn-sm" [routerLink]="['/conta', retirada.id]">
+                <i class="bi bi-receipt"></i> Abrir conta
+              </a>
+            </div>
+          </div>
+        }
+      </div>
+    </section>
+  }
 </div>
